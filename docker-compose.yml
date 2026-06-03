@@ -1,0 +1,38 @@
+# Job Scheduler frontend — production container.
+# Publishes ONLY on 127.0.0.1:2000 (the host Nginx reverse-proxies 443 → 2000).
+# Reads BACKEND_ORIGIN (+ any secrets) from .env at runtime; nothing is baked in.
+
+services:
+  web:
+    build: .
+    image: job-scheduler-frontend:latest
+    container_name: job-scheduler-frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:2000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+# ── WireGuard reachability ────────────────────────────────────────────────────
+# The BFF (this container) must reach the backend (BACKEND_ORIGIN) over the
+# host's WireGuard (wg0). With the default bridge above, Docker masquerades the
+# container's egress to the host's wg0 source, which the backend allows — verify
+# after `up`:
+#     docker compose exec web wget -qO- <BACKEND_ORIGIN>/healthz   # → {"status":"ok"}
+#
+# If that fails, switch to host networking so the container reaches WG natively:
+#   1) remove the `ports:` block above
+#   2) add under `web:`
+#        network_mode: "host"
+#        environment:
+#          - NODE_ENV=production
+#          - PORT=2000
+#          - HOSTNAME=127.0.0.1
+#      → the app then listens directly on 127.0.0.1:2000 (still localhost-only).

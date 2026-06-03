@@ -1,0 +1,13 @@
+; BIND9 — add the `jobs` subdomain to the roger.tw forward zone.
+;
+; In /etc/bind/zones/forward.roger.tw:
+;   1) bump the SOA serial (your YYYYMMDDnn convention)
+;   2) add one A record `jobs` pointing at the SAME IP as the other subdomains
+;      (www / dev / status …). Do NOT hardcode the IP in this repo — copy the
+;      value from the existing records in the zone file.
+;
+; Then: named-checkzone roger.tw <zonefile>  →  rndc reload roger.tw
+;
+; Record to add (fill the IP from the existing A records):
+;
+;   jobs            IN      A       <same-ip-as-other-roger.tw-records>
