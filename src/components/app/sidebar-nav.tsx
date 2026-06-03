@@ -15,7 +15,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/tasks", label: "執行面板", icon: LayoutDashboard },
   { href: "/jobs", label: "紀錄面板", icon: ListChecks },
-  { href: "/monitoring", label: "監控", icon: Gauge, badge: "規劃中" },
+  { href: "/monitoring", label: "監控", icon: Gauge },
 ];
 
 export function SidebarNav() {
