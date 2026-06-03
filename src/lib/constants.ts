@@ -8,3 +8,6 @@ export const PUBLIC_PATHS = ["/login", "/register"] as const;
 
 /** Where to land after a successful login. */
 export const DEFAULT_AUTHED_PATH = "/tasks";
+
+/** Shown when the backend is unreachable (service maintenance / outage). */
+export const MAINTENANCE_MESSAGE = "系統維護中，暫時無法連線，請稍後再試。";

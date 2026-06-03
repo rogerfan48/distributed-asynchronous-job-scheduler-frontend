@@ -27,7 +27,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (hasSession && isPublic) {
+  // Bounce logged-in users off the auth pages — EXCEPT when a `reason` is
+  // present (e.g. ?reason=maintenance). Otherwise a backend outage loops:
+  // /tasks → maintenance redirect → /login → here → /tasks → …
+  if (hasSession && isPublic && !request.nextUrl.searchParams.has("reason")) {
     const url = request.nextUrl.clone();
     url.pathname = DEFAULT_AUTHED_PATH;
     url.search = "";

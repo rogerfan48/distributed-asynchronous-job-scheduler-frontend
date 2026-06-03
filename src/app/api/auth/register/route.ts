@@ -5,13 +5,26 @@ import { API_PREFIX } from "@/lib/env";
 import type { TokenResponse } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const body = await req.text();
+  const incoming = await req.json().catch(() => null);
+  if (!incoming || typeof incoming !== "object") {
+    return NextResponse.json({ detail: "請求格式錯誤" }, { status: 422 });
+  }
+
+  // Registration gate: a passcode hard-set in the frontend env (server-only).
+  // When configured, the supplied passcode must match; the field is never
+  // forwarded to the backend.
+  const { passcode, ...rest } = incoming as Record<string, unknown>;
+  const required = process.env.REGISTER_PASSCODE?.trim();
+  if (required && passcode !== required) {
+    return NextResponse.json({ detail: "註冊碼錯誤" }, { status: 403 });
+  }
+
   let res: Response;
   try {
     res = await backendFetch(`${API_PREFIX}/auth/register`, {
       method: "POST",
       token: null,
-      body,
+      body: JSON.stringify(rest),
       headers: { "Content-Type": "application/json" },
     });
   } catch {

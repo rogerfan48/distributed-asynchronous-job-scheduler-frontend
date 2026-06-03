@@ -28,14 +28,30 @@ export async function backendFetch(
 }
 
 /**
- * Page-facing typed GET for Server Components. On 401 it clears the user back
- * to the login page (token missing/expired). Throws on other non-OK statuses.
+ * Server-side GET that classifies failures: backend unreachable / 5xx →
+ * treat as maintenance and bounce to the login page (which shows a maintenance
+ * notice) instead of the error boundary. Returns the raw Response otherwise.
+ * On 401 → redirect to /login. NOTE: redirect() throws NEXT_REDIRECT.
+ */
+async function serverGet(apiPath: string): Promise<Response> {
+  let res: Response;
+  try {
+    res = await backendFetch(`${API_PREFIX}${apiPath}`);
+  } catch {
+    // network error / backend unreachable
+    redirect("/login?reason=maintenance");
+  }
+  if (res.status === 401) redirect("/login");
+  if (res.status >= 500) redirect("/login?reason=maintenance");
+  return res;
+}
+
+/**
+ * Page-facing typed GET for Server Components. Throws on non-OK 4xx
+ * (genuine error → error boundary). Backend-down/5xx/401 are handled by serverGet.
  */
 export async function serverJson<T>(apiPath: string): Promise<T> {
-  const res = await backendFetch(`${API_PREFIX}${apiPath}`);
-  if (res.status === 401) {
-    redirect("/login");
-  }
+  const res = await serverGet(apiPath);
   if (!res.ok) {
     throw new Error(`Backend request failed (${res.status}) for ${apiPath}`);
   }
@@ -44,10 +60,7 @@ export async function serverJson<T>(apiPath: string): Promise<T> {
 
 /** Like serverJson but tolerates 404 by returning null (e.g. latest-run). */
 export async function serverJsonOrNull<T>(apiPath: string): Promise<T | null> {
-  const res = await backendFetch(`${API_PREFIX}${apiPath}`);
-  if (res.status === 401) {
-    redirect("/login");
-  }
+  const res = await serverGet(apiPath);
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Backend request failed (${res.status}) for ${apiPath}`);

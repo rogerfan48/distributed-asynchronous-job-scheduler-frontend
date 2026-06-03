@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, User, KeyRound, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api, errorMessage } from "@/lib/api-client";
-import { DEFAULT_AUTHED_PATH } from "@/lib/constants";
+import { api, errorMessage, isBackendDown } from "@/lib/api-client";
+import { DEFAULT_AUTHED_PATH, MAINTENANCE_MESSAGE } from "@/lib/constants";
 
 type Mode = "login" | "register";
 
@@ -27,12 +27,13 @@ const COPY: Record<Mode, { title: string; subtitle: string; cta: string; endpoin
   },
 };
 
-export function AuthForm({ mode }: { mode: Mode }) {
+export function AuthForm({ mode, notice }: { mode: Mode; notice?: string }) {
   const router = useRouter();
   const copy = COPY[mode];
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
+  const [passcode, setPasscode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,15 +53,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
     try {
       const payload =
         mode === "register"
-          ? { username, password, email: email.trim() || undefined }
+          ? {
+              username,
+              password,
+              email: email.trim() || undefined,
+              passcode: passcode || undefined,
+            }
           : { username, password };
       await api.post(copy.endpoint, payload);
       // Success → navigate away; inline state, no toast needed on the public page.
       router.replace(nextTarget());
       router.refresh();
     } catch (err) {
-      // Failures surface via the inline error box below the form.
-      setError(errorMessage(err, mode === "login" ? "登入失敗" : "註冊失敗"));
+      // Backend unreachable → maintenance copy (not "登入失敗", which implies bad creds).
+      setError(
+        isBackendDown(err)
+          ? MAINTENANCE_MESSAGE
+          : errorMessage(err, mode === "login" ? "登入失敗" : "註冊失敗"),
+      );
       setSubmitting(false);
     }
   }
@@ -71,6 +81,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <h1 className="text-xl font-semibold tracking-tight">{copy.title}</h1>
         <p className="text-muted-foreground text-sm">{copy.subtitle}</p>
       </div>
+
+      {notice && (
+        <div
+          role="status"
+          className="border-status-queued/30 bg-status-queued/10 text-foreground mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
+        >
+          <Wrench className="text-status-queued mt-0.5 size-4 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
 
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="space-y-2">
@@ -108,6 +128,29 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                className="pl-9"
+                disabled={submitting}
+              />
+            </div>
+          </div>
+        )}
+
+        {mode === "register" && (
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label htmlFor="passcode">註冊碼</Label>
+              <span className="text-muted-foreground text-xs">由管理者提供</span>
+            </div>
+            <div className="relative">
+              <KeyRound className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                id="passcode"
+                name="passcode"
+                type="password"
+                autoComplete="off"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                placeholder="輸入註冊碼"
                 className="pl-9"
                 disabled={submitting}
               />

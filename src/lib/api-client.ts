@@ -16,6 +16,11 @@ export class ApiError extends Error {
   }
 }
 
+/** True when the error indicates the backend is unreachable (BFF returned 502/503). */
+export function isBackendDown(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 502 || error.status === 503);
+}
+
 /** Best-effort extraction of a human-readable message from a FastAPI error. */
 export function errorMessage(error: unknown, fallback = "發生未預期的錯誤"): string {
   if (error instanceof ApiError) {
