@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,13 +55,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
           ? { username, password, email: email.trim() || undefined }
           : { username, password };
       await api.post(copy.endpoint, payload);
-      toast.success(mode === "login" ? "登入成功" : "註冊成功，已自動登入");
+      // Success → navigate away; inline state, no toast needed on the public page.
       router.replace(nextTarget());
       router.refresh();
     } catch (err) {
-      const msg = errorMessage(err, mode === "login" ? "登入失敗" : "註冊失敗");
-      setError(msg);
-      toast.error(msg);
+      // Failures surface via the inline error box below the form.
+      setError(errorMessage(err, mode === "login" ? "登入失敗" : "註冊失敗"));
       setSubmitting(false);
     }
   }

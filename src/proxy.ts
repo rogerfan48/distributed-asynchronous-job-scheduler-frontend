@@ -39,6 +39,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Run on all routes except API (handles its own 401), Next internals,
-  // and static assets.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)"],
+  // generated metadata images (must be publicly fetchable by crawlers), and
+  // any path with a file extension (static assets).
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.[\\w]+$).*)",
+  ],
 };

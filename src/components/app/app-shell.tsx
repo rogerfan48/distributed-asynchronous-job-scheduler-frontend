@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Toaster } from "@/components/ui/sonner";
 import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ConsoleProvider, ConsolePanel, ConsoleToggle } from "./console";
@@ -102,6 +103,8 @@ export function AppShell({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Toaster theme="dark" position="top-right" richColors closeButton />
     </ConsoleProvider>
   );
 }
