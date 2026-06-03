@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,13 @@ export function ScheduledSection({
   jobs: Job[];
   latestByJob: Map<number, JobRun>;
 }) {
+  // Re-render every 3s so the "距下次執行" countdown stays current.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 3000);
+    return () => clearInterval(id);
+  }, []);
+
   // Only enabled cron/interval jobs; sorted by soonest next run.
   const rows = useMemo(() => {
     return jobs

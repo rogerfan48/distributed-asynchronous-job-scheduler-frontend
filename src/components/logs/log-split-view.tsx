@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { LogViewer } from "./log-viewer";
 import { StatusBadge } from "@/components/jobs/status-badge";
 import { fetcher } from "@/lib/api-client";
-import { isActive } from "@/lib/types";
+import { isActive, compareCategories } from "@/lib/types";
 import type { JobRunLog } from "@/lib/types";
 
 export type SplitEntry = {
@@ -58,7 +58,10 @@ export function LogSplitView({
       if (bucket) bucket.push(e);
       else map.set(k, [e]);
     }
-    return { showHeaders: hasCategory, groups: Array.from(map.entries()) };
+    const groups = Array.from(map.entries());
+    // fixed category order: 未分類 first, then dictionary
+    if (hasCategory) groups.sort((a, b) => compareCategories(a[0], b[0]));
+    return { showHeaders: hasCategory, groups };
   }, [entries]);
 
   if (entries.length === 0) {
