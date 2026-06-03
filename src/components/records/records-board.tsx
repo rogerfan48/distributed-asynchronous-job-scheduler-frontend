@@ -185,7 +185,7 @@ export function RecordsBoard({
                   <span className="text-muted-foreground/50">{groupRuns.length}</span>
                 </button>
                 {!isCollapsed && (
-                  <div className="bg-card divide-border/60 divide-y rounded-xl border px-1.5">
+                  <div className="bg-card divide-border/60 divide-y overflow-hidden rounded-xl border">
                     {groupRuns.map((run) => (
                       <RunRow key={run.id} run={run} job={byId.get(run.job_id)} />
                     ))}
@@ -203,7 +203,7 @@ export function RecordsBoard({
 function RunRow({ run, job }: { run: JobRun; job?: Job }) {
   const [showLog, setShowLog] = useState(false);
   return (
-    <div className="hover:bg-accent/30 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors">
+    <div className="hover:bg-accent/30 flex items-center gap-3 px-3 py-2.5 transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{job?.name ?? `Job #${run.job_id}`}</span>

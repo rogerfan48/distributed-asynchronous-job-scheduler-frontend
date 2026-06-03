@@ -113,7 +113,7 @@ export function TaskActions({
         <>
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size={size}
             className="text-status-failed"
             disabled={busy !== null}
@@ -127,7 +127,7 @@ export function TaskActions({
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size={size}
             disabled={busy !== null}
             onClick={(e) => {
@@ -136,7 +136,7 @@ export function TaskActions({
             }}
           >
             <RotateCcw />
-            重試
+            重跑
           </Button>
         </>
       )}
@@ -194,9 +194,9 @@ export function TaskActions({
       <ConfirmDialog
         open={confirm === "retry"}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title={`重試「${job.name}」？`}
+        title={`重跑「${job.name}」？`}
         description="會先取消目前的執行，再重新觸發一個新的執行。"
-        confirmLabel="重試"
+        confirmLabel="重跑"
         onConfirm={retry}
       />
     </div>

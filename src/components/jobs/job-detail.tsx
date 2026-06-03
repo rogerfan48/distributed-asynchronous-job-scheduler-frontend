@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "./status-badge";
 import { FavoriteToggle } from "./favorite-toggle";
-import { TriggerButton } from "./trigger-button";
 import { RunActions } from "./run-actions";
+import { TaskActions } from "@/components/tasks/task-actions";
 import { LogViewer } from "@/components/logs/log-viewer";
 import { LogModal } from "@/components/logs/log-modal";
 import { fetcher } from "@/lib/api-client";
@@ -78,12 +78,11 @@ export function JobDetail({
           {job.description && <p className="text-muted-foreground mt-2 max-w-2xl text-sm">{job.description}</p>}
         </div>
         <div className="flex items-center gap-2">
-          {latestRun && <RunActions run={latestRun} />}
           <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil />
             編輯
           </Button>
-          <TriggerButton jobId={job.id} jobName={job.name} variant="default" />
+          <TaskActions job={job} latestRun={latestRun} size="sm" />
         </div>
       </div>
 

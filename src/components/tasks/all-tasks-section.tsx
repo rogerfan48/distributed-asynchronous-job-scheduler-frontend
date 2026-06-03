@@ -76,13 +76,13 @@ export function AllTasksSection({
                 <span className="text-muted-foreground/50">{list.length}</span>
               </button>
               {!isCollapsed && (
-                <div className="bg-card divide-border/60 divide-y rounded-xl border px-1.5">
+                <div className="bg-card divide-border/60 divide-y overflow-hidden rounded-xl border">
                   {list.map((job) => {
                     const latest = latestByJob.get(job.id);
                     return (
                       <div
                         key={job.id}
-                        className="hover:bg-accent/30 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors"
+                        className="hover:bg-accent/30 flex items-center gap-3 px-3 py-2.5 transition-colors"
                       >
                         <FavoriteToggle jobId={job.id} />
 
