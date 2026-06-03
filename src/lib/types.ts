@@ -123,3 +123,39 @@ export function groupJobsByCategory(jobs: Job[]): Map<string, Job[]> {
 export function isScheduled(job: Pick<Job, "schedule_type">): boolean {
   return job.schedule_type === "cron" || job.schedule_type === "interval";
 }
+
+/** Latest run per job id. Assumes `runs` is newest-first (as the API returns). */
+export function latestRunByJob(runs: JobRun[]): Map<number, JobRun> {
+  const map = new Map<number, JobRun>();
+  for (const r of runs) if (!map.has(r.job_id)) map.set(r.job_id, r);
+  return map;
+}
+
+/** Jobs that declare `jobId` as an upstream dependency (i.e. its downstream). */
+export function dependentsOf(jobId: number, jobs: Job[]): Job[] {
+  return jobs.filter((j) => (j.depends_on ?? []).includes(jobId));
+}
+
+/**
+ * Full upstream chain of a job (direct deps first, then theirs…), de-duplicated
+ * and cycle-safe. Returns the upstream Jobs in breadth-first order.
+ */
+export function upstreamChain(job: Job, byId: Map<number, Job>): Job[] {
+  const out: Job[] = [];
+  const seen = new Set<number>([job.id]);
+  let frontier = job.depends_on ?? [];
+  while (frontier.length) {
+    const next: number[] = [];
+    for (const id of frontier) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const up = byId.get(id);
+      if (up) {
+        out.push(up);
+        next.push(...(up.depends_on ?? []));
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}

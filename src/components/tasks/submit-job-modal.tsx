@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Upload, FileText, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -33,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api, errorMessage } from "@/lib/api-client";
 import { useConsole } from "@/components/app/console";
-import type { Job, JobCreate, JobDraft, TaskType, ScheduleType } from "@/lib/types";
+import type { Job, JobCreate, JobUpdate, JobDraft, TaskType, ScheduleType } from "@/lib/types";
 
 const TASK_TYPES: { value: TaskType; label: string }[] = [
   { value: "shell", label: "Shell（容器內指令）" },
@@ -106,13 +106,17 @@ export function SubmitJobModal({
   onOpenChange,
   existingJobs,
   onCreated,
+  editJob,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existingJobs: Job[];
   onCreated?: (job: Job) => void;
+  /** When provided, the modal edits this job (PUT) instead of creating one. */
+  editJob?: Job | null;
 }) {
   const router = useRouter();
+  const isEdit = !!editJob;
   const { push } = useConsole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [f, setF] = useState<FormState>(EMPTY);
@@ -209,6 +213,56 @@ export function SubmitJobModal({
     if (draft.depends_on?.length) setDependsOn(draft.depends_on);
   }
 
+  function applyJob(job: Job) {
+    const spec = (job.task_spec ?? {}) as Record<string, unknown>;
+    const tt = (job.task_type as TaskType) ?? "shell";
+    setF({
+      ...EMPTY,
+      name: job.name,
+      category: job.category ?? "",
+      description: job.description ?? "",
+      taskType: tt,
+      scheduleType: (job.schedule_type as ScheduleType) ?? "manual",
+      scheduleExpr: job.schedule_expr ?? "",
+      timezone: job.timezone || "Asia/Taipei",
+      enabled: job.enabled,
+      maxRetries: String(job.max_retries ?? 0),
+      retryBackoff: String(job.retry_backoff_sec ?? 30),
+      timeoutSec: String(job.timeout_sec ?? 300),
+      command: typeof spec.command === "string" ? spec.command : "",
+      argsText: Array.isArray(spec.args) ? (spec.args as string[]).join("\n") : "",
+      envText:
+        spec.env && typeof spec.env === "object"
+          ? Object.entries(spec.env as Record<string, string>).map(([k, v]) => `${k}=${v}`).join("\n")
+          : "",
+      url: typeof spec.url === "string" ? spec.url : "",
+      method: typeof spec.method === "string" ? spec.method : "GET",
+      headersText: spec.headers ? JSON.stringify(spec.headers, null, 2) : "",
+      bodyText: spec.body ? JSON.stringify(spec.body, null, 2) : "",
+      expectText: Array.isArray(spec.expect) ? (spec.expect as number[]).join(", ") : "",
+      statusUrl: typeof spec.status_url === "string" ? spec.status_url : "",
+      statusField: typeof spec.status_field === "string" ? spec.status_field : "status",
+      successText: Array.isArray(spec.success_values)
+        ? (spec.success_values as string[]).join("\n")
+        : EMPTY.successText,
+      failureText: Array.isArray(spec.failure_values)
+        ? (spec.failure_values as string[]).join("\n")
+        : EMPTY.failureText,
+      pollInterval: spec.poll_interval_sec != null ? String(spec.poll_interval_sec) : "30",
+      resultField: typeof spec.result_field === "string" ? spec.result_field : "",
+    });
+    setDependsOn(job.depends_on ?? []);
+    setError(null);
+  }
+
+  // Prefill on open: edit → load the job; create → fresh form.
+  useEffect(() => {
+    if (!open) return;
+    if (editJob) applyJob(editJob);
+    else reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editJob]);
+
   function buildTaskSpec(): Record<string, unknown> {
     if (f.taskType === "shell") {
       if (f.useFileScript && f.fileContent) {
@@ -304,15 +358,37 @@ export function SubmitJobModal({
     }
     setSubmitting(true);
     try {
-      const job = await api.post<Job>("/api/jobs", payload);
-      push("success", `已建立任務 #${job.id}「${job.name}」`);
-      toast.success(`任務「${job.name}」已建立`);
+      let job: Job;
+      if (editJob) {
+        // `name` is immutable on the backend (JobUpdate has no name field).
+        const update: JobUpdate = {
+          category: payload.category,
+          description: payload.description,
+          task_type: payload.task_type,
+          task_spec: payload.task_spec,
+          schedule_type: payload.schedule_type,
+          schedule_expr: payload.schedule_expr,
+          timezone: payload.timezone,
+          enabled: payload.enabled,
+          max_retries: payload.max_retries,
+          retry_backoff_sec: payload.retry_backoff_sec,
+          timeout_sec: payload.timeout_sec,
+          depends_on: payload.depends_on,
+        };
+        job = await api.put<Job>(`/api/jobs/${editJob.id}`, update);
+        push("success", `已更新任務 #${job.id}「${job.name}」`);
+        toast.success(`任務「${job.name}」已更新`);
+      } else {
+        job = await api.post<Job>("/api/jobs", payload);
+        push("success", `已建立任務 #${job.id}「${job.name}」`);
+        toast.success(`任務「${job.name}」已建立`);
+      }
       reset();
       onOpenChange(false);
       onCreated?.(job);
       router.refresh();
     } catch (err) {
-      const msg = errorMessage(err, "建立任務失敗");
+      const msg = errorMessage(err, isEdit ? "更新任務失敗" : "建立任務失敗");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -326,9 +402,11 @@ export function SubmitJobModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle>新任務</DialogTitle>
+          <DialogTitle>{isEdit ? "編輯任務" : "新任務"}</DialogTitle>
           <DialogDescription>
-            手動填寫，或上傳文字檔自動帶入草稿後再編輯。
+            {isEdit
+              ? "修改任務設定後儲存。名稱建立後無法變更。"
+              : "手動填寫，或上傳文字檔自動帶入草稿後再編輯。"}
           </DialogDescription>
         </DialogHeader>
 
@@ -366,8 +444,15 @@ export function SubmitJobModal({
 
             {/* Basics */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="任務名稱" required htmlFor="name">
-                <Input id="name" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="daily-report" required />
+              <Field label="任務名稱" required htmlFor="name" hint={isEdit ? "建立後不可變更" : undefined}>
+                <Input
+                  id="name"
+                  value={f.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="daily-report"
+                  required
+                  disabled={isEdit}
+                />
               </Field>
               <Field label="分類" htmlFor="category" hint="空白歸入「未分類」">
                 <Input
@@ -584,7 +669,7 @@ export function SubmitJobModal({
             </Button>
             <Button type="submit" disabled={submitting || uploading}>
               {submitting && <Loader2 className="animate-spin" />}
-              建立任務
+              {isEdit ? "儲存變更" : "建立任務"}
             </Button>
           </DialogFooter>
         </form>

@@ -1,16 +1,39 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FavoriteToggle } from "@/components/jobs/favorite-toggle";
-import { TriggerButton } from "@/components/jobs/trigger-button";
-import { describeSchedule } from "@/lib/format";
+import { CategoryTag } from "@/components/jobs/category-tag";
+import { TaskActions } from "./task-actions";
+import { nextRunAt, formatCountdown, formatDateTime } from "@/lib/format";
 import { isScheduled } from "@/lib/types";
-import type { Job } from "@/lib/types";
+import type { Job, JobRun } from "@/lib/types";
 
-export function ScheduledSection({ jobs }: { jobs: Job[] }) {
-  const scheduled = jobs.filter(isScheduled);
+export function ScheduledSection({
+  jobs,
+  latestByJob,
+}: {
+  jobs: Job[];
+  latestByJob: Map<number, JobRun>;
+}) {
+  // Only enabled cron/interval jobs; sorted by soonest next run.
+  const rows = useMemo(() => {
+    return jobs
+      .filter((j) => isScheduled(j) && j.enabled)
+      .map((job) => {
+        const lr = latestByJob.get(job.id);
+        const next = nextRunAt(job, lr?.started_at ?? lr?.created_at ?? job.created_at);
+        return { job, next };
+      })
+      .sort((a, b) => {
+        const ta = a.next?.getTime() ?? Infinity;
+        const tb = b.next?.getTime() ?? Infinity;
+        return ta - tb;
+      });
+  }, [jobs, latestByJob]);
+
+  const approxNote = (job: Job) => (job.schedule_type === "interval" ? "約 " : "");
 
   return (
     <Card className="h-full">
@@ -21,29 +44,30 @@ export function ScheduledSection({ jobs }: { jobs: Job[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {scheduled.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">尚無排程任務</p>
+        {rows.length === 0 ? (
+          <p className="text-muted-foreground py-6 text-center text-sm">尚無啟用中的排程任務</p>
         ) : (
           <ul className="divide-border -my-1 divide-y">
-            {scheduled.map((job) => (
-              <li key={job.id} className="flex items-center gap-2 py-2">
-                <FavoriteToggle jobId={job.id} />
-                <Link href={`/jobs/${job.id}`} className="min-w-0 flex-1">
+            {rows.map(({ job, next }) => (
+              <li
+                key={job.id}
+                className="hover:bg-accent/40 -mx-2 flex items-center gap-3 rounded-md px-2 py-2 transition-colors"
+              >
+                <Link href={`/tasks/${job.id}`} className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium hover:underline">
-                      {job.name}
+                    <span className="truncate text-sm font-medium hover:underline">{job.name}</span>
+                    <CategoryTag category={job.category} />
+                    <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
+                      {job.task_type}
                     </span>
-                    {!job.enabled && (
-                      <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
-                        已停用
-                      </span>
-                    )}
                   </span>
-                  <span className="text-muted-foreground font-mono text-xs">
-                    {describeSchedule(job)}
+                  <span className="text-muted-foreground mt-0.5 block text-xs">
+                    {approxNote(job)}
+                    {formatCountdown(next)}
+                    {next && <span className="text-muted-foreground/60"> · {formatDateTime(next.toISOString())}</span>}
                   </span>
                 </Link>
-                <TriggerButton jobId={job.id} jobName={job.name} variant="ghost" />
+                <TaskActions job={job} latestRun={latestByJob.get(job.id)} size="xs" />
               </li>
             ))}
           </ul>

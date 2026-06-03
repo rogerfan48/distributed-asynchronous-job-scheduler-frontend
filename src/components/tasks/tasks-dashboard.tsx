@@ -1,48 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetcher } from "@/lib/api-client";
-import { RecentJobs } from "./recent-jobs";
 import { FavoritesSection } from "./favorites-section";
 import { ScheduledSection } from "./scheduled-section";
+import { AllTasksSection } from "./all-tasks-section";
 import { SubmitJobModal } from "./submit-job-modal";
-import type { Job, RecentJobItem } from "@/lib/types";
-
-const JOBS_KEY = "/api/jobs?limit=200";
-const RECENT_KEY = "/api/jobs/recent?limit=8";
+import { latestRunByJob } from "@/lib/types";
+import type { Job, JobRun } from "@/lib/types";
 
 export function TasksDashboard({
   initialJobs,
-  initialRecent,
+  initialRuns,
 }: {
   initialJobs: Job[];
-  initialRecent: RecentJobItem[];
+  initialRuns: JobRun[];
 }) {
   const [open, setOpen] = useState(false);
 
-  const { data: jobs = [], mutate: mutateJobs } = useSWR<Job[]>(JOBS_KEY, fetcher, {
-    fallbackData: initialJobs,
-  });
-  const { data: recent = [], mutate: mutateRecent } = useSWR<RecentJobItem[]>(
-    RECENT_KEY,
+  const { data: jobs = [], mutate: mutateJobs } = useSWR<Job[]>(
+    "/api/jobs?limit=500",
     fetcher,
-    { fallbackData: initialRecent, refreshInterval: 10000 },
+    { fallbackData: initialJobs, refreshInterval: 10000 },
   );
+  const { data: runs = [], mutate: mutateRuns } = useSWR<JobRun[]>(
+    "/api/runs?limit=200",
+    fetcher,
+    { fallbackData: initialRuns, refreshInterval: 5000 },
+  );
+
+  const latestByJob = useMemo(() => latestRunByJob(runs), [runs]);
+  const byId = useMemo(() => new Map(jobs.map((j) => [j.id, j] as const)), [jobs]);
 
   function refresh() {
     void mutateJobs();
-    void mutateRecent();
+    void mutateRuns();
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">任務控制台</h2>
-          <p className="text-muted-foreground text-sm">建立、收藏與快速執行任務</p>
+          <h2 className="text-lg font-semibold tracking-tight">執行面板</h2>
+          <p className="text-muted-foreground text-sm">建立、收藏與執行任務</p>
         </div>
         <Button onClick={() => setOpen(true)}>
           <Plus />
@@ -50,12 +53,12 @@ export function TasksDashboard({
         </Button>
       </div>
 
-      <RecentJobs items={recent} />
-
       <div className="grid gap-6 lg:grid-cols-2">
-        <FavoritesSection jobs={jobs} />
-        <ScheduledSection jobs={jobs} />
+        <FavoritesSection jobs={jobs} latestByJob={latestByJob} />
+        <ScheduledSection jobs={jobs} latestByJob={latestByJob} />
       </div>
+
+      <AllTasksSection jobs={jobs} latestByJob={latestByJob} byId={byId} />
 
       <SubmitJobModal
         open={open}

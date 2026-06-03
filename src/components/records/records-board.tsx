@@ -1,26 +1,36 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { Search, List, Columns2, ChevronDown } from "lucide-react";
+import { Search, List, Columns2, ChevronDown, ScrollText, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fetcher } from "@/lib/api-client";
-import { JobRow } from "./job-row";
+import { StatusBadge } from "@/components/jobs/status-badge";
+import { LogModal } from "@/components/logs/log-modal";
 import { LogSplitView, type SplitEntry } from "@/components/logs/log-split-view";
-import { groupJobsByCategory, runPhase, type RunPhase } from "@/lib/types";
-import { describeSchedule } from "@/lib/format";
+import { formatRelative } from "@/lib/format";
+import { jobCategory, runPhase, isActive, type RunPhase } from "@/lib/types";
 import type { Job, JobRun } from "@/lib/types";
 
 const PHASES: { key: RunPhase | "all"; label: string }[] = [
   { key: "all", label: "全部" },
-  { key: "pending", label: "等待" },
+  { key: "pending", label: "等待中" },
   { key: "running", label: "執行中" },
-  { key: "completed", label: "完成" },
-  { key: "error", label: "錯誤" },
+  { key: "completed", label: "成功" },
+  { key: "error", label: "失敗" },
 ];
 
-export function JobsBoard({
+const TRIGGER_LABEL: Record<string, string> = {
+  manual: "手動",
+  scheduled: "排程",
+  dependency: "依賴",
+  retry: "重試",
+};
+
+export function RecordsBoard({
   initialJobs,
   initialRuns,
 }: {
@@ -40,41 +50,50 @@ export function JobsBoard({
   const [view, setView] = useState<"list" | "split">("list");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  // Latest run per job (runs come newest-first from the API).
-  const latestByJob = useMemo(() => {
-    const map = new Map<number, JobRun>();
-    for (const r of runs) if (!map.has(r.job_id)) map.set(r.job_id, r);
-    return map;
-  }, [runs]);
+  const byId = useMemo(() => new Map(jobs.map((j) => [j.id, j] as const)), [jobs]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return jobs.filter((j) => {
-      if (q && !j.name.toLowerCase().includes(q) && !(j.category ?? "").toLowerCase().includes(q)) {
-        return false;
-      }
-      if (phase !== "all") {
-        const run = latestByJob.get(j.id);
-        if (!run || runPhase(run.status) !== phase) return false;
+    return runs.filter((r) => {
+      const job = byId.get(r.job_id);
+      if (phase !== "all" && runPhase(r.status) !== phase) return false;
+      if (q) {
+        const name = job?.name?.toLowerCase() ?? "";
+        const cat = (job?.category ?? "").toLowerCase();
+        if (!name.includes(q) && !cat.includes(q)) return false;
       }
       return true;
     });
-  }, [jobs, query, phase, latestByJob]);
+  }, [runs, byId, phase, query]);
 
-  const groups = useMemo(() => groupJobsByCategory(filtered), [filtered]);
+  // Group runs by their job's category (runs are newest-first → group order = recency).
+  const groups = useMemo(() => {
+    const map = new Map<string, JobRun[]>();
+    for (const r of filtered) {
+      const cat = jobCategory(byId.get(r.job_id) ?? { category: null });
+      const bucket = map.get(cat);
+      if (bucket) bucket.push(r);
+      else map.set(cat, [r]);
+    }
+    return Array.from(map.entries());
+  }, [filtered, byId]);
 
   const splitEntries: SplitEntry[] = useMemo(
     () =>
-      filtered.map((j) => ({
-        id: j.id,
-        title: j.name,
-        subtitle: j.category?.trim() || describeSchedule(j),
-        status: latestByJob.get(j.id)?.status ?? null,
-      })),
-    [filtered, latestByJob],
+      filtered.map((r) => {
+        const job = byId.get(r.job_id);
+        return {
+          id: r.id,
+          title: job?.name ?? `Job #${r.job_id}`,
+          subtitle: `#Run ${r.id} · ${TRIGGER_LABEL[r.trigger_type] ?? r.trigger_type}`,
+          category: jobCategory(job ?? { category: null }),
+          status: r.status,
+        };
+      }),
+    [filtered, byId],
   );
 
-  function toggleCollapse(cat: string) {
+  function toggle(cat: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(cat)) next.delete(cat);
@@ -92,7 +111,7 @@ export function JobsBoard({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜尋名稱或分類…"
+            placeholder="搜尋任務名稱或分類…"
             className="pl-9"
           />
         </div>
@@ -128,7 +147,7 @@ export function JobsBoard({
             onClick={() => setView("split")}
             className={cn("grid size-7 place-items-center rounded-md", view === "split" ? "bg-background shadow-sm" : "text-muted-foreground")}
             aria-label="快速閱覽模式"
-            title="快速閱覽模式（左 job / 右 log）"
+            title="快速閱覽模式（左 Run / 右 log）"
           >
             <Columns2 className="size-4" />
           </button>
@@ -137,29 +156,29 @@ export function JobsBoard({
 
       {filtered.length === 0 ? (
         <div className="text-muted-foreground rounded-lg border py-16 text-center text-sm">
-          {jobs.length === 0 ? "尚無任務，請至「任務執行」建立。" : "沒有符合條件的任務"}
+          {runs.length === 0 ? "尚無執行紀錄。" : "沒有符合條件的紀錄"}
         </div>
       ) : view === "split" ? (
-        <LogSplitView entries={splitEntries} logsPath={(id) => `/api/jobs/${id}/logs`} />
+        <LogSplitView entries={splitEntries} logsPath={(id) => `/api/runs/${id}/logs`} />
       ) : (
         <div className="space-y-5">
-          {Array.from(groups.entries()).map(([category, groupJobs]) => {
+          {groups.map(([category, groupRuns]) => {
             const isCollapsed = collapsed.has(category);
             return (
               <section key={category}>
                 <button
                   type="button"
-                  onClick={() => toggleCollapse(category)}
+                  onClick={() => toggle(category)}
                   className="text-muted-foreground mb-1 flex w-full items-center gap-1.5 text-xs font-semibold tracking-wide uppercase"
                 >
                   <ChevronDown className={cn("size-3.5 transition-transform", isCollapsed && "-rotate-90")} />
                   {category}
-                  <span className="text-muted-foreground/50">{groupJobs.length}</span>
+                  <span className="text-muted-foreground/50">{groupRuns.length}</span>
                 </button>
                 {!isCollapsed && (
                   <div className="bg-card divide-border/60 divide-y rounded-xl border px-1.5">
-                    {groupJobs.map((job) => (
-                      <JobRow key={job.id} job={job} latestRun={latestByJob.get(job.id)} />
+                    {groupRuns.map((run) => (
+                      <RunRow key={run.id} run={run} job={byId.get(run.job_id)} />
                     ))}
                   </div>
                 )}
@@ -168,6 +187,51 @@ export function JobsBoard({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function RunRow({ run, job }: { run: JobRun; job?: Job }) {
+  const [showLog, setShowLog] = useState(false);
+  return (
+    <div className="hover:bg-accent/30 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium">{job?.name ?? `Job #${run.job_id}`}</span>
+          <span className="text-muted-foreground/60 font-mono text-[11px]">#Run {run.id}</span>
+          {job && (
+            <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
+              {job.task_type}
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          {TRIGGER_LABEL[run.trigger_type] ?? run.trigger_type}
+          {" · "}
+          {formatRelative(run.started_at ?? run.created_at)}
+        </p>
+      </div>
+
+      <StatusBadge status={run.status} />
+
+      <Button type="button" variant="ghost" size="sm" onClick={() => setShowLog(true)}>
+        <ScrollText />
+        Log
+      </Button>
+      {job && (
+        <Button render={<Link href={`/tasks/${job.id}`} />} variant="ghost" size="icon-sm" aria-label="前往任務">
+          <ChevronRight />
+        </Button>
+      )}
+
+      <LogModal
+        open={showLog}
+        onOpenChange={setShowLog}
+        title={job?.name ?? `Job #${run.job_id}`}
+        subtitle={`Run #${run.id} · ${run.status}`}
+        logsPath={`/api/runs/${run.id}/logs`}
+        active={isActive(run.status)}
+      />
     </div>
   );
 }

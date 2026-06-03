@@ -5,7 +5,7 @@ import { backendFetch, serverJsonOrNull } from "@/lib/backend";
 import { API_PREFIX } from "@/lib/env";
 import type { Job, JobRun } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Job 詳情" };
+export const metadata: Metadata = { title: "任務詳情" };
 
 export default async function JobDetailPage({
   params,

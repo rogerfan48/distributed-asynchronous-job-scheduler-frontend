@@ -13,8 +13,8 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { href: "/tasks", label: "任務執行", icon: LayoutDashboard },
-  { href: "/jobs", label: "Job 狀態", icon: ListChecks },
+  { href: "/tasks", label: "執行面板", icon: LayoutDashboard },
+  { href: "/jobs", label: "紀錄面板", icon: ListChecks },
   { href: "/monitoring", label: "監控", icon: Gauge, badge: "規劃中" },
 ];
 

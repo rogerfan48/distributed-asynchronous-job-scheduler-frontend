@@ -18,8 +18,8 @@ import { ConsoleProvider, ConsolePanel, ConsoleToggle } from "./console";
 import type { User } from "@/lib/types";
 
 const ROUTE_TITLES: { prefix: string; title: string }[] = [
-  { prefix: "/tasks", title: "任務執行" },
-  { prefix: "/jobs", title: "Job 狀態" },
+  { prefix: "/tasks", title: "執行面板" },
+  { prefix: "/jobs", title: "紀錄面板" },
   { prefix: "/monitoring", title: "監控" },
 ];
 

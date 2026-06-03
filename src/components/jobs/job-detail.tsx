@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowLeft, ScrollText } from "lucide-react";
+import { ArrowLeft, ScrollText, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitJobModal } from "@/components/tasks/submit-job-modal";
 import {
   Table,
   TableBody,
@@ -50,11 +51,15 @@ export function JobDetail({
     { refreshInterval: active ? 3000 : 0 },
   );
 
+  // Jobs list (for the edit modal's dependency picker + category suggestions).
+  const [editOpen, setEditOpen] = useState(false);
+  const { data: allJobs = [] } = useSWR<Job[]>("/api/jobs?limit=500", fetcher);
+
   return (
     <div className="space-y-6">
-      <Link href="/jobs" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
+      <Link href="/tasks" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
         <ArrowLeft className="size-4" />
-        Job 狀態
+        執行面板
       </Link>
 
       {/* Header */}
@@ -74,6 +79,10 @@ export function JobDetail({
         </div>
         <div className="flex items-center gap-2">
           {latestRun && <RunActions run={latestRun} />}
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil />
+            編輯
+          </Button>
           <TriggerButton jobId={job.id} jobName={job.name} variant="default" />
         </div>
       </div>
@@ -154,6 +163,13 @@ export function JobDetail({
           )}
         </CardContent>
       </Card>
+
+      <SubmitJobModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        existingJobs={allJobs.filter((j) => j.id !== job.id)}
+        editJob={job}
+      />
     </div>
   );
 }

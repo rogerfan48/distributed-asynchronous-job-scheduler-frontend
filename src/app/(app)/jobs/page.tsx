@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { JobsBoard } from "@/components/jobs/jobs-board";
+import { RecordsBoard } from "@/components/records/records-board";
 import { serverJson } from "@/lib/backend";
 import type { Job, JobRun } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Job 狀態" };
+export const metadata: Metadata = { title: "紀錄面板" };
 
-export default async function JobsPage() {
+export default async function RecordsPage() {
   const [jobs, runs] = await Promise.all([
     serverJson<Job[]>("/jobs?limit=500"),
     serverJson<JobRun[]>("/runs?limit=200"),
   ]);
 
-  return <JobsBoard initialJobs={jobs} initialRuns={runs} />;
+  return <RecordsBoard initialJobs={jobs} initialRuns={runs} />;
 }
