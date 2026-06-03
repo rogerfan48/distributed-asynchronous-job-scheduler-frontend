@@ -11,8 +11,8 @@ import { fetcher } from "@/lib/api-client";
 import { StatusBadge } from "@/components/jobs/status-badge";
 import { LogModal } from "@/components/logs/log-modal";
 import { LogSplitView, type SplitEntry } from "@/components/logs/log-split-view";
-import { formatRelative } from "@/lib/format";
-import { jobCategory, runPhase, isActive, type RunPhase } from "@/lib/types";
+import { formatRelative, formatDateTime } from "@/lib/format";
+import { jobCategory, runPhase, isActive, compareCategories, type RunPhase } from "@/lib/types";
 import type { Job, JobRun } from "@/lib/types";
 
 const PHASES: { key: RunPhase | "all"; label: string }[] = [
@@ -28,6 +28,14 @@ const TRIGGER_LABEL: Record<string, string> = {
   scheduled: "排程",
   dependency: "依賴",
   retry: "重試",
+};
+
+// Fixed, distinct colours so 手動 vs 排程 are easy to tell apart.
+const TRIGGER_COLOR: Record<string, string> = {
+  manual: "text-slate-400",
+  scheduled: "text-sky-400",
+  dependency: "text-amber-400",
+  retry: "text-fuchsia-400",
 };
 
 export function RecordsBoard({
@@ -75,7 +83,8 @@ export function RecordsBoard({
       if (bucket) bucket.push(r);
       else map.set(cat, [r]);
     }
-    return Array.from(map.entries());
+    // category order fixed (未分類 first, then dict); runs within stay newest-first
+    return Array.from(map.entries()).sort((a, b) => compareCategories(a[0], b[0]));
   }, [filtered, byId]);
 
   const splitEntries: SplitEntry[] = useMemo(
@@ -205,10 +214,16 @@ function RunRow({ run, job }: { run: JobRun; job?: Job }) {
             </span>
           )}
         </div>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          {TRIGGER_LABEL[run.trigger_type] ?? run.trigger_type}
-          {" · "}
-          {formatRelative(run.started_at ?? run.created_at)}
+        <p className="mt-0.5 text-xs">
+          <span className={cn("font-medium", TRIGGER_COLOR[run.trigger_type] ?? "text-muted-foreground")}>
+            {TRIGGER_LABEL[run.trigger_type] ?? run.trigger_type}
+          </span>
+          <span className="text-muted-foreground">
+            {" · "}
+            {formatRelative(run.started_at ?? run.created_at)}
+            {" · "}
+            {formatDateTime(run.started_at ?? run.created_at)}
+          </span>
         </p>
       </div>
 

@@ -10,6 +10,8 @@ import { DeleteJobButton } from "@/components/jobs/delete-job-button";
 import { api, errorMessage } from "@/lib/api-client";
 import { useConsole } from "@/components/app/console";
 import { isActive, isScheduled } from "@/lib/types";
+import { scheduleKind } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Job, JobRun } from "@/lib/types";
 
 type Size = "xs" | "sm" | "default";
@@ -142,9 +144,10 @@ export function TaskActions({
       {scheduled && (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size={size}
           disabled={busy !== null}
+          className={cn(job.enabled ? "text-muted-foreground" : scheduleKind(job).textClass)}
           onClick={(e) => {
             e.preventDefault();
             void toggleSchedule();

@@ -108,6 +108,14 @@ export function jobCategory(job: Pick<Job, "category">): string {
   return job.category?.trim() || DEFAULT_CATEGORY;
 }
 
+/** Fixed category ordering: 未分類 first, then dictionary order. */
+export function compareCategories(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a === DEFAULT_CATEGORY) return -1;
+  if (b === DEFAULT_CATEGORY) return 1;
+  return a.localeCompare(b, "zh-Hant");
+}
+
 export function groupJobsByCategory(jobs: Job[]): Map<string, Job[]> {
   const groups = new Map<string, Job[]>();
   for (const job of jobs) {

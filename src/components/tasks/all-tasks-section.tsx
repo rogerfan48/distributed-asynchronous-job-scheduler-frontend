@@ -11,7 +11,7 @@ import { FavoriteToggle } from "@/components/jobs/favorite-toggle";
 import { DependencyHint } from "@/components/jobs/dependency-hint";
 import { TaskActions } from "./task-actions";
 import { formatRelative } from "@/lib/format";
-import { groupJobsByCategory } from "@/lib/types";
+import { groupJobsByCategory, compareCategories } from "@/lib/types";
 import type { Job, JobRun } from "@/lib/types";
 
 export function AllTasksSection({
@@ -33,12 +33,13 @@ export function AllTasksSection({
   // Group by category; within a group sort by most-recent run; order groups the same.
   const groups = useMemo(() => {
     const map = groupJobsByCategory(jobs);
-    const entries = Array.from(map.entries()).map(([cat, list]) => {
-      const sorted = [...list].sort((a, b) => lastTime(b) - lastTime(a));
-      const recent = sorted.length ? lastTime(sorted[0]) : 0;
-      return { cat, list: sorted, recent };
-    });
-    entries.sort((a, b) => b.recent - a.recent);
+    const entries = Array.from(map.entries()).map(([cat, list]) => ({
+      cat,
+      // tasks within a category sort by most-recent run
+      list: [...list].sort((a, b) => lastTime(b) - lastTime(a)),
+    }));
+    // category order is fixed: 未分類 first, then dictionary order
+    entries.sort((a, b) => compareCategories(a.cat, b.cat));
     return entries;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, latestByJob]);
@@ -85,22 +86,25 @@ export function AllTasksSection({
                       >
                         <FavoriteToggle jobId={job.id} />
 
-                        <Link href={`/tasks/${job.id}`} className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
+                          {/* DependencyHint is OUTSIDE the link so its dialog doesn't navigate the row */}
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-sm font-medium hover:underline">{job.name}</span>
-                            <CategoryTag category={job.category} />
-                            <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
-                              {job.task_type}
-                            </span>
+                            <Link href={`/tasks/${job.id}`} className="flex min-w-0 items-center gap-2">
+                              <span className="truncate text-sm font-medium hover:underline">{job.name}</span>
+                              <CategoryTag category={job.category} />
+                              <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
+                                {job.task_type}
+                              </span>
+                            </Link>
                             <DependencyHint job={job} byId={byId} />
                           </div>
-                          <div className="mt-1 flex items-center gap-2">
+                          <Link href={`/tasks/${job.id}`} className="mt-1 flex items-center gap-2">
                             <SchedulePill job={job} />
                             <span className="text-muted-foreground text-xs">
                               {latest ? `最近 ${formatRelative(latest.created_at)}` : "尚未執行"}
                             </span>
-                          </div>
-                        </Link>
+                          </Link>
+                        </div>
 
                         <StatusBadge status={latest?.status} />
                         <TaskActions

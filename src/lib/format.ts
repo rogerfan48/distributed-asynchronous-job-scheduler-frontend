@@ -80,8 +80,9 @@ export function describeSchedule(job: {
 
 type ScheduleKind = {
   label: string;
-  /** Fixed colour classes per schedule type (text + tinted bg). */
-  className: string;
+  /** Fixed colour classes per schedule type (split so text can be greyed). */
+  bgClass: string;
+  textClass: string;
 };
 
 /** Schedule-type pill metadata with fixed colours (manual / cron / interval). */
@@ -91,14 +92,11 @@ export function scheduleKind(job: {
 }): ScheduleKind {
   switch (job.schedule_type) {
     case "cron":
-      return {
-        label: `Cron · ${job.schedule_expr ?? "?"}`,
-        className: "bg-violet-500/15 text-violet-400",
-      };
+      return { label: `Cron · ${job.schedule_expr ?? "?"}`, bgClass: "bg-violet-500/15", textClass: "text-violet-400" };
     case "interval":
-      return { label: describeSchedule(job), className: "bg-cyan-500/15 text-cyan-400" };
+      return { label: describeSchedule(job), bgClass: "bg-cyan-500/15", textClass: "text-cyan-400" };
     default:
-      return { label: "手動", className: "bg-slate-500/15 text-slate-400" };
+      return { label: "手動", bgClass: "bg-slate-500/15", textClass: "text-slate-400" };
   }
 }
 
