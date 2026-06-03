@@ -94,7 +94,14 @@ export function RecordsBoard({
         return {
           id: r.id,
           title: job?.name ?? `Job #${r.job_id}`,
-          subtitle: `#Run ${r.id} · ${TRIGGER_LABEL[r.trigger_type] ?? r.trigger_type}`,
+          subtitle: (
+            <>
+              <span className={cn("font-medium", TRIGGER_COLOR[r.trigger_type] ?? "text-muted-foreground")}>
+                {TRIGGER_LABEL[r.trigger_type] ?? r.trigger_type}
+              </span>
+              <span className="text-muted-foreground"> · #Run {r.id}</span>
+            </>
+          ),
           category: jobCategory(job ?? { category: null }),
           status: r.status,
         };
@@ -203,10 +210,15 @@ export function RecordsBoard({
 function RunRow({ run, job }: { run: JobRun; job?: Job }) {
   const [showLog, setShowLog] = useState(false);
   return (
-    <div className="hover:bg-accent/30 flex items-center gap-3 px-3 py-2.5 transition-colors">
+    <div className="group hover:bg-accent/30 relative flex items-center gap-3 px-3 py-2.5 transition-colors">
+      {/* Stretched overlay link — whole row navigates to the job (except z-10 controls) */}
+      {job && (
+        <Link href={`/tasks/${job.id}`} aria-label={job.name} className="absolute inset-0 z-0" />
+      )}
+
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{job?.name ?? `Job #${run.job_id}`}</span>
+          <span className="truncate text-sm font-medium group-hover:underline">{job?.name ?? `Job #${run.job_id}`}</span>
           <span className="text-muted-foreground/60 font-mono text-[11px]">#Run {run.id}</span>
           {job && (
             <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
@@ -229,15 +241,11 @@ function RunRow({ run, job }: { run: JobRun; job?: Job }) {
 
       <StatusBadge status={run.status} />
 
-      <Button type="button" variant="ghost" size="sm" onClick={() => setShowLog(true)}>
+      <Button type="button" variant="ghost" size="sm" className="relative z-10" onClick={() => setShowLog(true)}>
         <ScrollText />
         Log
       </Button>
-      {job && (
-        <Button render={<Link href={`/tasks/${job.id}`} />} variant="ghost" size="icon-sm" aria-label="前往任務">
-          <ChevronRight />
-        </Button>
-      )}
+      {job && <ChevronRight className="text-muted-foreground/40 group-hover:text-foreground size-4 shrink-0 transition-colors" />}
 
       <LogModal
         open={showLog}

@@ -82,38 +82,44 @@ export function AllTasksSection({
                     return (
                       <div
                         key={job.id}
-                        className="hover:bg-accent/30 flex items-center gap-3 px-3 py-2.5 transition-colors"
+                        className="group hover:bg-accent/30 relative flex items-center gap-3 px-3 py-2.5 transition-colors"
                       >
-                        <FavoriteToggle jobId={job.id} />
+                        {/* Stretched overlay link — whole row navigates, except z-10 controls */}
+                        <Link
+                          href={`/tasks/${job.id}`}
+                          aria-label={job.name}
+                          className="absolute inset-0 z-0"
+                        />
+
+                        <FavoriteToggle jobId={job.id} className="relative z-10" />
 
                         <div className="min-w-0 flex-1">
-                          {/* DependencyHint is OUTSIDE the link so its dialog doesn't navigate the row */}
                           <div className="flex flex-wrap items-center gap-2">
-                            <Link href={`/tasks/${job.id}`} className="flex min-w-0 items-center gap-2">
-                              <span className="truncate text-sm font-medium hover:underline">{job.name}</span>
-                              <CategoryTag category={job.category} />
-                              <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
-                                {job.task_type}
-                              </span>
-                            </Link>
-                            <DependencyHint job={job} byId={byId} />
+                            <span className="truncate text-sm font-medium group-hover:underline">{job.name}</span>
+                            <CategoryTag category={job.category} />
+                            <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
+                              {job.task_type}
+                            </span>
+                            <DependencyHint job={job} byId={byId} className="relative z-10" />
                           </div>
-                          <Link href={`/tasks/${job.id}`} className="mt-1 flex items-center gap-2">
+                          <div className="mt-1 flex items-center gap-2">
                             <SchedulePill job={job} />
                             <span className="text-muted-foreground text-xs">
                               {latest ? `最近 ${formatRelative(latest.created_at)}` : "尚未執行"}
                             </span>
-                          </Link>
+                          </div>
                         </div>
 
                         <StatusBadge status={latest?.status} />
-                        <TaskActions
-                          job={job}
-                          latestRun={latest}
-                          allJobs={jobs}
-                          showDelete
-                          size="xs"
-                        />
+                        <div className="relative z-10">
+                          <TaskActions
+                            job={job}
+                            latestRun={latest}
+                            allJobs={jobs}
+                            showDelete
+                            size="xs"
+                          />
+                        </div>
                       </div>
                     );
                   })}

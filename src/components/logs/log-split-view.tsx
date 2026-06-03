@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ import type { JobRunLog } from "@/lib/types";
 export type SplitEntry = {
   id: number;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   status?: string | null;
   /** Optional category — when present the left column is grouped by it. */
   category?: string;
