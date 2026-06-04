@@ -36,6 +36,16 @@ describe("grafana config", () => {
       process.env.GRAFANA_DASHBOARD_URL = "  /grafana/public-dashboards/abc  ";
       expect(grafanaDashboardUrl()).toBe("/grafana/public-dashboards/abc");
     });
+
+    it("is empty for non-grafana paths to avoid self-embedding the app", () => {
+      process.env.GRAFANA_DASHBOARD_URL = "/";
+      expect(grafanaDashboardUrl()).toBe("");
+    });
+
+    it("is empty for absolute URLs; nginx should expose Grafana under the same-origin sub-path", () => {
+      process.env.GRAFANA_DASHBOARD_URL = "https://jobs.roger.tw/grafana/public-dashboards/abc";
+      expect(grafanaDashboardUrl()).toBe("");
+    });
   });
 
   describe("isGrafanaHealthy", () => {
@@ -47,7 +57,9 @@ describe("grafana config", () => {
     afterEach(() => vi.unstubAllGlobals());
 
     it("is true on a 2xx health response", async () => {
-      fetchMock.mockResolvedValue(new Response("ok", { status: 200 }));
+      fetchMock.mockResolvedValue(
+        Response.json({ database: "ok", version: "12.0.0", commit: "abc" }),
+      );
       await expect(isGrafanaHealthy()).resolves.toBe(true);
     });
 
@@ -61,19 +73,41 @@ describe("grafana config", () => {
       await expect(isGrafanaHealthy()).resolves.toBe(false);
     });
 
+    it("is false for redirected responses so Next login pages cannot pass the gate", async () => {
+      fetchMock.mockResolvedValue(
+        new Response("", { status: 307, headers: { location: "/login" } }),
+      );
+      await expect(isGrafanaHealthy()).resolves.toBe(false);
+    });
+
+    it("is false for 2xx HTML responses from a misrouted same-origin path", async () => {
+      fetchMock.mockResolvedValue(
+        new Response("<!doctype html><title>Job Scheduler</title>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
+      await expect(isGrafanaHealthy()).resolves.toBe(false);
+    });
+
+    it("is false for JSON that is not the Grafana health payload", async () => {
+      fetchMock.mockResolvedValue(Response.json({ authenticated: false }));
+      await expect(isGrafanaHealthy()).resolves.toBe(false);
+    });
+
     it("checks the default origin-derived health URL", async () => {
       process.env.GRAFANA_ORIGIN = "http://10.0.0.3:8787";
-      fetchMock.mockResolvedValue(new Response("ok", { status: 200 }));
+      fetchMock.mockResolvedValue(Response.json({ database: "ok" }));
       await isGrafanaHealthy();
       expect(fetchMock).toHaveBeenCalledWith(
         "http://10.0.0.3:8787/grafana/api/health",
-        expect.objectContaining({ cache: "no-store" }),
+        expect.objectContaining({ cache: "no-store", redirect: "manual" }),
       );
     });
 
     it("honours an explicit GRAFANA_HEALTH_URL override", async () => {
       process.env.GRAFANA_HEALTH_URL = "http://custom/health";
-      fetchMock.mockResolvedValue(new Response("ok", { status: 200 }));
+      fetchMock.mockResolvedValue(Response.json({ database: "ok" }));
       await isGrafanaHealthy();
       expect(fetchMock).toHaveBeenCalledWith("http://custom/health", expect.anything());
     });
