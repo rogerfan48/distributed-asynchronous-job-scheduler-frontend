@@ -7,6 +7,7 @@ import {
   scheduleKind,
   nextRunAt,
   formatCountdown,
+  normalizeTimezone,
 } from "./format";
 
 describe("formatDateTime", () => {
@@ -20,6 +21,22 @@ describe("formatDateTime", () => {
     expect(formatDateTime(null)).toBe("—");
     expect(formatDateTime(undefined)).toBe("—");
     expect(formatDateTime("not-a-date")).toBe("—");
+  });
+});
+
+describe("normalizeTimezone", () => {
+  it("keeps valid IANA timezone names", () => {
+    expect(normalizeTimezone("Asia/Taipei")).toBe("Asia/Taipei");
+  });
+
+  it("normalizes whole-hour UTC offsets to IANA Etc/GMT names", () => {
+    expect(normalizeTimezone("UTC+8")).toBe("Etc/GMT-8");
+    expect(normalizeTimezone("UTC+08:00")).toBe("Etc/GMT-8");
+    expect(normalizeTimezone("GMT-5")).toBe("Etc/GMT+5");
+  });
+
+  it("falls back to UTC for invalid timezone values", () => {
+    expect(normalizeTimezone("not-a-zone")).toBe("UTC");
   });
 });
 
@@ -125,6 +142,21 @@ describe("nextRunAt", () => {
     const next = nextRunAt({ schedule_type: "cron", schedule_expr: "* * * * *" });
     expect(next).toBeInstanceOf(Date);
     expect(next!.getTime()).toBeGreaterThan(NOW.getTime());
+  });
+
+  it("accepts UTC offset aliases such as UTC+8 for cron countdowns", () => {
+    const offsetNext = nextRunAt({
+      schedule_type: "cron",
+      schedule_expr: "0 2 * * *",
+      timezone: "UTC+8",
+    });
+    const taipeiNext = nextRunAt({
+      schedule_type: "cron",
+      schedule_expr: "0 2 * * *",
+      timezone: "Asia/Taipei",
+    });
+    expect(offsetNext).toBeInstanceOf(Date);
+    expect(offsetNext!.toISOString()).toBe(taipeiNext!.toISOString());
   });
 
   it("extrapolates the next interval tick from the last run", () => {

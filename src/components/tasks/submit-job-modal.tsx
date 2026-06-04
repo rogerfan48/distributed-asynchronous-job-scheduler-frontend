@@ -31,6 +31,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { normalizeTimezone } from "@/lib/format";
 import { api, errorMessage } from "@/lib/api-client";
 import { useConsole } from "@/components/app/console";
 import type { Job, JobCreate, JobUpdate, JobDraft, TaskType, ScheduleType } from "@/lib/types";
@@ -335,7 +336,7 @@ export function SubmitJobModal({
       task_spec: buildTaskSpec(),
       schedule_type: f.scheduleType,
       schedule_expr: f.scheduleType === "manual" ? null : f.scheduleExpr.trim(),
-      timezone: f.timezone.trim() || "UTC",
+      timezone: normalizeTimezone(f.timezone),
       enabled: f.enabled,
       max_retries: Number(f.maxRetries) || 0,
       retry_backoff_sec: Number(f.retryBackoff) || 0,

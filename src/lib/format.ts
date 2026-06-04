@@ -28,6 +28,37 @@ const RELATIVE_STEPS: [limit: number, div: number, unit: Intl.RelativeTimeFormat
 
 const rtf = new Intl.RelativeTimeFormat("zh-TW", { numeric: "auto" });
 
+function isValidTimeZone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Normalize user-entered timezone aliases into IANA names accepted by Intl,
+ * croner, and Python zoneinfo. `Etc/GMT` signs are intentionally inverted:
+ * `Etc/GMT-8` means UTC+8.
+ */
+export function normalizeTimezone(timezone: string | null | undefined): string {
+  const value = timezone?.trim();
+  if (!value) return "UTC";
+  if (isValidTimeZone(value)) return value;
+
+  const offset = /^(?:UTC|GMT)\s*([+-])\s*(\d{1,2})(?::?00)?$/i.exec(value);
+  if (!offset) return "UTC";
+
+  const hours = Number(offset[2]);
+  if (!Number.isInteger(hours) || hours > 14) return "UTC";
+  if (hours === 0) return "UTC";
+
+  const etcSign = offset[1] === "+" ? "-" : "+";
+  const iana = `Etc/GMT${etcSign}${hours}`;
+  return isValidTimeZone(iana) ? iana : "UTC";
+}
+
 export function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -112,7 +143,7 @@ export function nextRunAt(
 ): Date | null {
   try {
     if (job.schedule_type === "cron" && job.schedule_expr) {
-      const cron = new Cron(job.schedule_expr, { timezone: job.timezone || "UTC" });
+      const cron = new Cron(job.schedule_expr, { timezone: normalizeTimezone(job.timezone) });
       return cron.nextRun();
     }
     if (job.schedule_type === "interval") {
