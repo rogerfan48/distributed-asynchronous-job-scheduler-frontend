@@ -25,10 +25,7 @@ export default async function MonitoringPage() {
             <p className="font-medium">後端監控頁面維護中</p>
             <p className="text-muted-foreground mt-0.5">
               暫時無法載入監控 dashboard，請聯繫{" "}
-              <a href="mailto:roger@roger.tw" className="text-primary hover:underline">
-                roger@roger.tw
-              </a>
-              。
+              <a href="mailto:roger@roger.tw" className="text-primary hover:underline">roger@roger.tw</a>。
             </p>
           </div>
         </div>

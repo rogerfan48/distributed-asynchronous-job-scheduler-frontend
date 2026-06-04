@@ -15,7 +15,7 @@ const PALETTE = [
 
 function colorFor(category: string): string {
   let h = 0;
-  for (let i = 0; i < category.length; i++) h = (h * 31 + category.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < category.length; i++) h = (h * 31 + (category.codePointAt(i) ?? 0)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
 
